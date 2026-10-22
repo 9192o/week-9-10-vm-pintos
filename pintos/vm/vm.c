@@ -39,9 +39,9 @@ static struct frame *vm_get_victim(void);
 static bool vm_do_claim_page(struct page *page);
 static struct frame *vm_evict_frame(void);
 
-/* Create the pending page object with initializer. If you want to create a
- * page, do not create it directly and make it through this function or
- * `vm_alloc_page`. */
+/* 보류 중인 페이지 객체를 생성하고 초기화합니다.
+ * 페이지를 생성하려면 직접 생성하지 말고,
+ * 이 함수나 `vm_alloc_page`를 통해 생성하십시오. */
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable,
 									vm_initializer *init, void *aux)
 {
@@ -111,10 +111,11 @@ vm_evict_frame(void)
 	return NULL;
 }
 
-/* palloc() and get frame. If there is no available page, evict the page
- * and return it. This always return valid address. That is, if the user pool
- * memory is full, this function evicts the frame to get the available memory
- * space.*/
+/* palloc() 호출하여 프레임을 확보합니다.
+ * 사용 가능한 페이지가 없다면, 해당 페이지를 희생시키고 반환합니다.
+ *
+ * 이 함수는 항상 유효한 주소를 반환합니다.
+ * 즉, 사용자 풀 메모리가 가득 찬 경우, 이 함수는 사용 가능한 메모리 공간을 확보하기 위해 프레임을 제거합니다 */
 static struct frame *
 vm_get_frame(void)
 {
@@ -126,19 +127,19 @@ vm_get_frame(void)
 	return frame;
 }
 
-/* Growing the stack. */
+/* 스택을 늘립니다. */
 static void
 vm_stack_growth(void *addr UNUSED)
 {
 }
 
-/* Handle the fault on write_protected page */
+/* 쓰기 보호된 페이지에서 발생하는 오류를 처리합니다. */
 static bool
 vm_handle_wp(struct page *page UNUSED)
 {
 }
 
-/* Return true on success */
+/* 성공 시 true를 반환합니다. */
 bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 						 bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
 {
@@ -150,7 +151,7 @@ bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
 	return vm_do_claim_page(page);
 }
 
-/* Free the page.
+/* PAGE를 free합니다.
  * DO NOT MODIFY THIS FUNCTION. */
 void vm_dealloc_page(struct page *page)
 {
@@ -158,7 +159,7 @@ void vm_dealloc_page(struct page *page)
 	free(page);
 }
 
-/* Claim the page that allocate on VA. */
+/* VA에 할당된 PAGE를 확보합니다. */
 bool vm_claim_page(void *va UNUSED)
 {
 	struct page *page = NULL;
@@ -167,7 +168,7 @@ bool vm_claim_page(void *va UNUSED)
 	return vm_do_claim_page(page);
 }
 
-/* Claim the PAGE and set up the mmu. */
+/* PAGE를 확보하고, MMU를 설정합니다. */
 static bool
 vm_do_claim_page(struct page *page)
 {
@@ -182,18 +183,18 @@ vm_do_claim_page(struct page *page)
 	return swap_in(page, frame->kva);
 }
 
-/* Initialize new supplemental page table */
+/* 새 spt(supplemental_page_table)을 초기화합니다. */
 void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
 {
 }
 
-/* Copy supplemental page table from src to dst */
+/* src인자로 받은 spt를 dst인자로 복사합니다. */
 bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
 								  struct supplemental_page_table *src UNUSED)
 {
 }
 
-/* Free the resource hold by the supplemental page table */
+/* spt가 점유하고 있는 리소스를 해제합니다. */
 void supplemental_page_table_kill(struct supplemental_page_table *spt UNUSED)
 {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and

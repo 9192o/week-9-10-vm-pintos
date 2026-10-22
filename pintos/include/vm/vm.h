@@ -3,7 +3,8 @@
 #include <stdbool.h>
 #include "threads/palloc.h"
 
-/* 페이지 유형 */
+/* 페이지 유형.
+ * 시스템의 페이지는 한 번에 하나의 상태만 가질 수 있습니다. */
 enum vm_type
 {
 	/* 초기화 되지 않은 페이지 */
@@ -17,12 +18,13 @@ enum vm_type
 
 	/* Bit flags to store state */
 
-	/* Auxillary bit flag marker for store information. You can add more
-	 * markers, until the value is fit in the int. */
+	/* 저장 정보를 위한 보조 비트 플래그 마커입니다.
+	 * int형 마커를 더 추가할 수 있습니다. */
 	VM_MARKER_0 = (1 << 3),
 	VM_MARKER_1 = (1 << 4),
 
-	/* DO NOT EXCEED THIS VALUE. */
+	/* DO NOT EXCEED THIS VALUE.
+	 * 이 값을 초과하지 마십시오. */
 	VM_MARKER_END = (1 << 31),
 };
 
@@ -45,20 +47,21 @@ struct thread;
 struct page
 {
 	const struct page_operations *operations;
-	void *va;			 /* Address in terms of user space */
-	struct frame *frame; /* Back reference for frame */
+	void *va;			 /* 사용자 공간 기준 주소 */
+	struct frame *frame; /* 프레임에 대한 역참조 */
 
 	/* Your implementation */
 
-	/* Per-type data are binded into the union.
-	 * Each function automatically detects the current union */
+	/* 각 데이터 유형은 union에 바인딩됩니다.
+	 * 각 함수는 현재 union을 자동으로 감지합니다. */
+	/* 쉽게 말해, 시스템의 페이지는 한 번에 하나의 값만 가질 수 있습니다. */
 	union
 	{
-		struct uninit_page uninit;
-		struct anon_page anon;
-		struct file_page file;
+		struct uninit_page uninit; /* 초기화되지 않은 페이지 */
+		struct anon_page anon;	   /* 익명 페이지 */
+		struct file_page file;	   /* 파일 페이지 */
 #ifdef EFILESYS
-		struct page_cache page_cache;
+		struct page_cache page_cache; /* 또는 페이지 캐시 (Project 4)*/
 #endif
 	};
 };
