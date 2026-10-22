@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="580" viewBox="0 0 1440 580" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">PINTOS — Kernel Panic Club</title>
+  <desc id="desc">A black, violet and neon lime cover for an x86-64 operating systems project. Project 02: User Programs. A terminal and a user-to-kernel diagram illustrate crossing the privilege boundary.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1440" y2="580" gradientUnits="userSpaceOnUse"><stop stop-color="#0b0c10"/><stop offset=".65" stop-color="#121020"/><stop offset="1" stop-color="#201339"/></linearGradient>
+    <linearGradient id="stripe" x1="0" y1="0" x2="1440" y2="0" gradientUnits="userSpaceOnUse"><stop stop-color="#b8ff5b"/><stop offset=".5" stop-color="#8fffe0"/><stop offset="1" stop-color="#b69aff"/></linearGradient>
+    <linearGradient id="panel" x1="942" y1="160" x2="1320" y2="470" gradientUnits="userSpaceOnUse"><stop stop-color="#222035"/><stop offset="1" stop-color="#11131c"/></linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" stroke="#9d8dcd" stroke-opacity=".07"/></pattern>
+    <clipPath id="round"><rect width="1440" height="580" rx="24"/></clipPath>
+  </defs>
+  <g clip-path="url(#round)">
+    <rect width="1440" height="580" fill="url(#bg)"/>
+    <rect width="1440" height="580" fill="url(#grid)"/>
+    <circle cx="1320" cy="260" r="285" fill="#a782ff" fill-opacity=".035"/>
+    <circle cx="1320" cy="260" r="220" stroke="#b69aff" stroke-opacity=".12"/>
+    <circle cx="1320" cy="260" r="176" stroke="#b69aff" stroke-opacity=".08"/>
+    <path d="M1130 0L1440 310M1220 0L1440 220" stroke="#b69aff" stroke-opacity=".1"/>
+    <rect width="1440" height="5" fill="url(#stripe)"/>
+    <rect x="1" y="1" width="1438" height="578" rx="23" stroke="#363044"/>
+    <g font-family="Arial, Helvetica, sans-serif">
+      <rect x="62" y="52" width="12" height="12" rx="2" fill="#b8ff5b"/>
+      <rect x="80" y="52" width="12" height="12" rx="2" fill="#b8ff5b" fill-opacity=".3"/>
+      <text x="108" y="64" fill="#f0eef5" font-size="14" font-weight="700" letter-spacing="3">JUNGLE / SYSTEMS LAB</text>
+      <rect x="1081" y="43" width="297" height="32" rx="16" fill="#241e35" stroke="#675185"/>
+      <circle cx="1100" cy="59" r="4" fill="#b8ff5b"/>
+      <text x="1113" y="64" fill="#d6c5ff" font-size="12" font-weight="700" letter-spacing="1.5">PROJECT 02 / USER PROGRAMS</text>
+      <text x="57" y="224" fill="#b8ff5b" font-size="150" font-weight="900" letter-spacing="-9">PINTOS</text>
+      <rect x="66" y="250" width="235" height="33" rx="6" fill="#b8ff5b"/>
+      <text x="79" y="272" fill="#10130c" font-size="16" font-weight="900" letter-spacing="2">KERNEL PANIC CLUB</text>
+      <text x="65" y="342" fill="#f8f6ff" font-size="36" font-weight="700" letter-spacing="-.6">Build it. Break it. Know it.</text>
+      <text x="67" y="381" fill="#aaa4bc" font-size="18">Small kernel. Big questions. Zero shortcuts to understanding.</text>
+      <text x="67" y="430" fill="#b69aff" font-size="13" font-weight="700" letter-spacing="2.3">USER SPACE. KERNEL DEPTH. ALL THE WAY DOWN.</text>
+      <path d="M64 484H1376" stroke="#3b334d"/>
+      <text x="66" y="535" fill="#f3f1f8" font-size="15" font-weight="700" letter-spacing="1.8">x86-64</text>
+      <text x="184" y="535" fill="#aba5bb" font-size="14" letter-spacing="1">C + ASM</text>
+      <text x="325" y="535" fill="#aba5bb" font-size="14" letter-spacing="1">QEMU</text>
+      <text x="448" y="535" fill="#aba5bb" font-size="14" letter-spacing="1">DOCKER</text>
+      <text x="1108" y="535" fill="#b8ff5b" font-size="13" font-weight="700" letter-spacing="1.5">BOOT / TRACE / REPEAT</text>
+    </g>
+    <g transform="translate(930 113)">
+      <rect x="9" y="12" width="448" height="334" rx="16" fill="#05050a" fill-opacity=".55"/>
+      <rect width="448" height="334" rx="16" fill="url(#panel)" stroke="#66547f"/>
+      <path d="M0 42H448" stroke="#4a3c61"/>
+      <circle cx="21" cy="21" r="4" fill="#ff7798"/>
+      <circle cx="37" cy="21" r="4" fill="#ffd36e"/>
+      <circle cx="53" cy="21" r="4" fill="#b8ff5b"/>
+      <text x="77" y="25" fill="#aaa1bc" font-family="Arial, Helvetica, sans-serif" font-size="11" letter-spacing="1.2">pintos@jungle : ~/userprog</text>
+      <g font-family="Consolas, monospace" font-size="14">
+        <text x="23" y="80" fill="#b8ff5b">$</text><text x="42" y="80" fill="#eeebf6">make understanding</text>
+        <text x="23" y="109" fill="#a89cbd">[ boot ]</text><text x="109" y="109" fill="#d6c8ed">x86-64 / ring 0</text>
+        <text x="23" y="138" fill="#a89cbd">[ next ]</text><text x="109" y="138" fill="#d6c8ed">enter user space</text>
+      </g>
+      <rect x="23" y="169" width="165" height="66" rx="10" fill="#1b2b24" stroke="#6b8d48"/>
+      <rect x="261" y="169" width="164" height="66" rx="10" fill="#2b213d" stroke="#9474c5"/>
+      <g font-family="Arial, Helvetica, sans-serif" text-anchor="middle">
+        <text x="105" y="195" fill="#b8ff5b" font-size="13" font-weight="700" letter-spacing="1.3">USER MODE</text>
+        <text x="105" y="216" fill="#99b391" font-size="11">argc / argv / main</text>
+        <text x="343" y="195" fill="#d9c3ff" font-size="13" font-weight="700" letter-spacing="1.3">KERNEL MODE</text>
+        <text x="343" y="216" fill="#ac98c5" font-size="11">validate / handle / return</text>
+      </g>
+      <path d="M194 191H251M245 185L251 191L245 197" stroke="#b8ff5b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M251 215H194M200 209L194 215L200 221" stroke="#b69aff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="224" y="162" text-anchor="middle" fill="#b8ff5b" font-family="Consolas, monospace" font-size="10">syscall</text>
+      <path d="M23 263H425" stroke="#4c3e60"/>
+      <text x="23" y="293" fill="#a79ab9" font-family="Consolas, monospace" font-size="12">while (curious) { trace(); learn(); }</text>
+      <rect x="23" y="307" width="7" height="12" fill="#b8ff5b"/>
+    </g>
+  </g>
+</svg>
+
