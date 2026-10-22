@@ -31,7 +31,7 @@ struct initd_context
 };
 
 static void process_cleanup(void);
-static bool load(const char *file_name, struct intr_frame *if_);
+static bool load(char *file_name, struct intr_frame *if_);
 static void initd(void *f_name);
 static void __do_fork(void *);
 static void child_status_put(struct child_status *cs);
@@ -563,7 +563,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
  * and its initial stack pointer into *RSP.
  * Returns true if successful, false otherwise. */
 static bool
-load(const char *file_name, struct intr_frame *if_)
+load(char *file_name, struct intr_frame *if_)
 {
 	struct thread *t = thread_current();
 	struct ELF ehdr;
@@ -571,6 +571,31 @@ load(const char *file_name, struct intr_frame *if_)
 	off_t file_ofs;
 	bool success = false;
 	int i;
+	int argc = 0;
+	char *read = file_name;
+	char *write = file_name;
+
+	/* 앞뒤 공백을 제거하고 연속 공백을 하나로 정리합니다. */
+	while (*read != '\0')
+	{
+		while (*read == ' ')
+			read++;
+		if (*read == '\0')
+			break;
+		if (write != file_name)
+			*write++ = ' ';
+		argc++;
+		while (*read != '\0' && *read != ' ')
+			*write++ = *read++;
+	}
+	*write = '\0';
+
+	/* 문자열 외에 argv NULL과 가짜 반환 주소까지 한 페이지에 들어가야 합니다. */
+	size_t strings_bytes = (size_t)(write - file_name) + 1;
+	size_t stack_bytes = ROUND_UP(strings_bytes, sizeof(char *)) +
+						 ((size_t)argc + 2) * sizeof(char *);
+	if (argc == 0 || stack_bytes > PGSIZE)
+		goto done;
 
 	/* Page Directory 할당 및 활성화 */
 	t->pml4 = pml4_create();
@@ -585,25 +610,14 @@ load(const char *file_name, struct intr_frame *if_)
 	if_->R.rsi = USER_STACK;
 	if_->rsp = USER_STACK;
 
-	for (char *p = file_name; p != file_name + strlen(file_name); p++)
-	{
-		if (*p == ' ' && *(p + 1) == ' ')
-		{
-			memmove(p, p + 1, file_name + strlen(file_name) - p);
-			*(char *)(file_name + strlen(file_name)) = '\0';
-		}
-	}
-
 	char *p = file_name + strlen(file_name) + 1;
 	char *temp = p;
-	int argc = 0;
 	for (;; p--)
 	{
 		if (p == file_name || *(p - 1) == ' ')
 		{
-			argc++;
 			if_->R.rsi -= temp - p;
-			memcpy(if_->R.rsi, p, temp - p);
+			memcpy((void *)if_->R.rsi, p, temp - p);
 			if (p == file_name)
 			{
 				break;
