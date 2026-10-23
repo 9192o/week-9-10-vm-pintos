@@ -86,22 +86,13 @@ spt_find_page(struct supplemental_page_table *spt, void *va)
 	return page;
 }
 
-/* TODO: 검증과 함께 spt에 PAGE를 삽입합니다.
+/* spt에 PAGE를 삽입합니다.
  * 페이지가 존재할 시, 기존 항목을 유지하고 false를 반환합니다. */
 bool spt_insert_page(struct supplemental_page_table *spt, struct page *page)
 {
-	int succ = false;
-
-	/* 해당 페이지가 존재하는지 검색 */
-	if (spt_find_page(spt, page) == NULL)
-	{
-		/* TODO: 존재하지 않을 시 페이지 삽입 */
-		hash_insert(&(spt->spt_mapped_page), );
-
-		return succ;
-	}
-
-	return succ;
+	if (hash_insert(&(spt->spt_mapped_page), &(page->spt_mapped_page_elem)) == NULL)
+		return true;
+	return false;
 }
 
 /* spt에서 PAGE를 삭제합니다. */
