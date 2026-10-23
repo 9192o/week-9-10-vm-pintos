@@ -53,6 +53,7 @@ struct page
 
 	/* Your implementation */
 	struct hash_elem spt_mapped_page_elem; /* 해시 테이블에 들어갈 요소 */
+	bool writable;
 
 	/* 각 데이터 유형은 union에 바인딩됩니다.
 	 * 각 함수는 현재 union을 자동으로 감지합니다. */
