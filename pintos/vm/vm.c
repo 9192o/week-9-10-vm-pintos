@@ -15,6 +15,7 @@ void vm_init(void)
 #endif
 	register_inspect_intr();
 	/* DO NOT MODIFY UPPER LINES. */
+
 	/* TODO: Your code goes here. */
 }
 
@@ -42,13 +43,12 @@ static struct frame *vm_evict_frame(void);
 /* 보류 중인 페이지 객체를 생성하고 초기화합니다.
  * 페이지를 생성하려면 직접 생성하지 말고,
  * 이 함수나 `vm_alloc_page`를 통해 생성하십시오. */
-bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable,
-									vm_initializer *init, void *aux)
+bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable, vm_initializer *init, void *aux)
 {
 
 	ASSERT(VM_TYPE(type) != VM_UNINIT)
 
-	struct supplemental_page_table *spt = &thread_current()->spt;
+	struct supplemental_page_table *spt = &(thread_current()->spt);
 
 	/* Check wheter the upage is already occupied or not. */
 	if (spt_find_page(spt, upage) == NULL)
@@ -65,20 +65,41 @@ err:
 
 /* spt에서 VA를 찾고, 그 PAGE를 반환합니다. 오류 시 NULL을 반환합니다. */
 struct page *
-spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED)
+spt_find_page(struct supplemental_page_table *spt, void *va)
 {
-	struct page *page = NULL;
-	/* TODO: Fill this function. */
+	struct page *page = NULL; /* 반환 페이지 */
+	struct page tmp_page;	  /* 검색용 페이지 */
+	struct hash_elem *elem;
+	void *pg_start; /* 검색 주소*/
+
+	/* VA -> PAGE 시작 주소 변환 */
+	pg_start = pg_round_down(va);
+
+	/* 검색용 임시 페이지 생성 */
+	tmp_page.va = pg_start;
+
+	/* 인자로 전달받은 spt 내에서, VA -> PAGE 매핑을 찾아서 반환한다. */
+	elem = hash_find(&(spt->spt_mapped_page), &(tmp_page.spt_mapped_page_elem));
+	if (elem != NULL)
+		page = hash_entry(elem, struct page, spt_mapped_page_elem);
 
 	return page;
 }
 
-/* 검증과 함께 spt에 PAGE를 삽입합니다. */
-bool spt_insert_page(struct supplemental_page_table *spt UNUSED,
-					 struct page *page UNUSED)
+/* TODO: 검증과 함께 spt에 PAGE를 삽입합니다.
+ * 페이지가 존재할 시, 기존 항목을 유지하고 false를 반환합니다. */
+bool spt_insert_page(struct supplemental_page_table *spt, struct page *page)
 {
 	int succ = false;
-	/* TODO: Fill this function. */
+
+	/* 해당 페이지가 존재하는지 검색 */
+	if (spt_find_page(spt, page) == NULL)
+	{
+		/* TODO: 존재하지 않을 시 페이지 삽입 */
+		hash_insert(&(spt->spt_mapped_page), );
+
+		return succ;
+	}
 
 	return succ;
 }
@@ -140,10 +161,9 @@ vm_handle_wp(struct page *page UNUSED)
 }
 
 /* 성공 시 true를 반환합니다. */
-bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED,
-						 bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
+bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED, bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
 {
-	struct supplemental_page_table *spt UNUSED = &thread_current()->spt;
+	struct supplemental_page_table *spt UNUSED = &(thread_current()->spt);
 	struct page *page = NULL;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
@@ -183,9 +203,10 @@ vm_do_claim_page(struct page *page)
 	return swap_in(page, frame->kva);
 }
 
-/* 새 spt(supplemental_page_table)을 초기화합니다. */
-void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
+/* 새 spt(supplemental_page_table)을 initializing합니다. */
+void supplemental_page_table_init(struct supplemental_page_table *spt)
 {
+	hash_init(spt->spt_mapped_page, );
 }
 
 /* src인자로 받은 spt를 dst인자로 복사합니다. */
