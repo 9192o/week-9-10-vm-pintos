@@ -131,7 +131,7 @@ vm_evict_frame(void)
 	return NULL;
 }
 
-/* palloc() 호출하여 프레임을 확보합니다.
+/* palloc()을 호출하여 프레임을 확보합니다.
  * 사용 가능한 페이지가 없다면, 해당 페이지를 희생시키고 반환합니다.
  *
  * 이 함수는 항상 유효한 주소를 반환합니다.
@@ -140,10 +140,25 @@ static struct frame *
 vm_get_frame(void)
 {
 	struct frame *frame = NULL;
+
 	/* TODO: Fill this function. */
 
-	ASSERT(frame != NULL);
-	ASSERT(frame->page == NULL);
+	/* 프레임 관리 구조체 확보 */
+	frame = malloc(sizeof(struct frame));
+	if (frame == NULL)
+		PANIC("todo");
+
+	/* 사용자 물리 프레임 확보 */
+	frame->kva = palloc_get_page(PAL_USER);
+	if (frame->kva == NULL)
+	{
+		free(frame);
+		PANIC("todo");
+	}
+
+	/* 연결된 페이지 없음 */
+	frame->page = NULL;
+
 	return frame;
 }
 
@@ -159,7 +174,7 @@ vm_handle_wp(struct page *page UNUSED)
 {
 }
 
-/* 성공 시 true를 반환합니다. */
+/* 폴트 처리 성공 시 true를 반환합니다. */
 bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED, bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
 {
 	struct supplemental_page_table *spt UNUSED = &(thread_current()->spt);
