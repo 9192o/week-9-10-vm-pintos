@@ -105,8 +105,6 @@ struct supplemental_page_table
 #include "threads/thread.h"
 void supplemental_page_table_init(struct supplemental_page_table *spt);
 
-uint64_t hash_init_func(const struct hash_elem *e, void *aux);
-
 bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct supplemental_page_table *src);
 void supplemental_page_table_kill(struct supplemental_page_table *spt);
 struct page *spt_find_page(struct supplemental_page_table *spt, void *va);

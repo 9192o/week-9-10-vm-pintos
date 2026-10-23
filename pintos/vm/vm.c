@@ -4,6 +4,14 @@
 #include "vm/vm.h"
 #include "vm/inspect.h"
 
+/* 해시 함수 */
+static uint64_t
+hash_func(const struct hash_elem *e, void *aux UNUSED);
+
+/* 해시 비교 함수 */
+static bool
+hash_compare_func(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED);
+
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void vm_init(void)
@@ -99,7 +107,7 @@ bool spt_insert_page(struct supplemental_page_table *spt, struct page *page)
 void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
 {
 	vm_dealloc_page(page);
-	return true;
+	return true; /* 왜인지 모르지만 true를 반환 */
 }
 
 /* 희생할 struct frame을 반환합니다. */
@@ -197,7 +205,39 @@ vm_do_claim_page(struct page *page)
 /* 새 spt(supplemental_page_table)을 initializing합니다. */
 void supplemental_page_table_init(struct supplemental_page_table *spt)
 {
-	hash_init(spt->spt_mapped_page, );
+	/* TODO: init 실패 시 처리 분기 */
+	hash_init(&(spt->spt_mapped_page), hash_func, hash_compare_func, NULL);
+}
+
+static uint64_t
+hash_func(const struct hash_elem *e, void *aux UNUSED)
+{
+	struct page *page;
+	void *pg_start;
+
+	uint64_t hashed;
+
+	page = hash_entry(e, struct page, spt_mapped_page_elem);
+
+	/* 페이지 시작 주소 */
+	pg_start = pg_round_down(page->va);
+
+	/* 시작 주소 해싱 */
+	hashed = hash_bytes(&pg_start, sizeof(pg_start));
+
+	return hashed;
+}
+
+static bool
+hash_compare_func(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
+{
+	struct page *page_a;
+	struct page *page_b;
+
+	page_a = hash_entry(a, struct page, spt_mapped_page_elem);
+	page_b = hash_entry(b, struct page, spt_mapped_page_elem);
+
+	return (uintptr_t)(pg_round_down(page_a->va)) < (uintptr_t)(pg_round_down(page_b->va));
 }
 
 /* src인자로 받은 spt를 dst인자로 복사합니다. */
