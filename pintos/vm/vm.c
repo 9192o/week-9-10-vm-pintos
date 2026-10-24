@@ -49,27 +49,48 @@ static struct frame *vm_get_victim(void);
 static bool vm_do_claim_page(struct page *page);
 static struct frame *vm_evict_frame(void);
 
-/* 보류 중인 페이지 객체를 생성하고 초기화합니다.
- * 페이지를 생성하려면 직접 생성하지 말고,
- * 이 함수나 `vm_alloc_page`를 통해 생성하십시오. */
+/* 보류 중인 페이지 객체를 생성하고 초기화합니다. (VM_UNINIT -> VM_ANON)
+ * 페이지를 생성하려면 직접 생성하지 말고, 이 함수나 `vm_alloc_page`를 통해 생성하십시오. */
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable, vm_initializer *init, void *aux)
 {
-
 	ASSERT(VM_TYPE(type) != VM_UNINIT)
-
 	struct supplemental_page_table *spt = &(thread_current()->spt);
 
-	/* Check wheter the upage is already occupied or not. */
-	if (spt_find_page(spt, upage) == NULL)
-	{
-		/* TODO: Create the page, fetch the initialier according to the VM type,
-		 * TODO: and then create "uninit" page struct by calling uninit_new. You
-		 * TODO: should modify the field after calling the uninit_new. */
+	/* 사용자 페이지가 점유되어있는지 확인 */
+	if (spt_find_page(spt, upage) != NULL)
+		return false;
 
-		/* TODO: Insert the page into the spt. */
+	/* 페이지 구조체 생성 */
+	struct page *page = malloc(sizeof(struct page));
+	if (page == NULL)
+		return false;
+
+	/* 초기화 */
+	switch (VM_TYPE(type))
+	{
+	case VM_ANON:
+		uninit_new(page, upage, init, type, aux, anon_initializer);
+		break;
+	case VM_FILE:
+		uninit_new(page, upage, init, type, aux, file_backed_initializer);
+		break;
+	/* project 4를 위한 초기화 분기 */
+	case VM_PAGE_CACHE:
+	default:
+		free(page);
+		page = NULL;
+		return false;
 	}
-err:
-	return false;
+
+	page->writable = writable;
+	if (!spt_insert_page(spt, page))
+	{
+		free(page);
+		page = NULL;
+		return false;
+	}
+
+	return true;
 }
 
 /* spt에서 VA를 찾고, 그 PAGE를 반환합니다. 오류 시 NULL을 반환합니다. */
