@@ -49,7 +49,8 @@ static struct frame *vm_get_victim(void);
 static bool vm_do_claim_page(struct page *page);
 static struct frame *vm_evict_frame(void);
 
-/* 보류 중인 페이지 객체를 생성하고 초기화합니다. (VM_UNINIT -> VM_ANON)
+/* 보류 중인 페이지 객체를 생성하고 초기화합니다.
+ * (정확히는, uninitial 된 페이지이며 인자로 받은 초기화자를 지정해줍니다.)
  * 페이지를 생성하려면 직접 생성하지 말고, 이 함수나 `vm_alloc_page`를 통해 생성하십시오. */
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable, vm_initializer *init, void *aux)
 {
@@ -197,9 +198,9 @@ vm_handle_wp(struct page *page UNUSED)
 }
 
 /* 폴트 처리 성공 시 true를 반환합니다. */
-bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED, bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
+bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write, bool not_present)
 {
-	struct supplemental_page_table *spt UNUSED = &(thread_current()->spt);
+	struct supplemental_page_table *spt = &(thread_current()->spt);
 	struct page *page = NULL;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */

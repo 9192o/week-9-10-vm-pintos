@@ -41,7 +41,7 @@ void uninit_new(struct page *page, void *va, vm_initializer *init,
 		}};
 }
 
-/* Initalize the page on first fault */
+/* 첫 페이지 폴트 발생 시 페이지를 초기화합니다. */
 static bool
 uninit_initialize(struct page *page, void *kva)
 {
