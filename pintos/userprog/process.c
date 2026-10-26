@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include "userprog/gdt.h"
 #include "userprog/tss.h"
 #include "filesys/directory.h"
@@ -847,7 +848,6 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		/* TODO: Set up aux to pass information to the lazy_load_segment. */
 		/* 지연 로딩을 위한 컨텍스트 설정 */
 		struct lazy_load_context *l_ctx = malloc(sizeof(struct lazy_load_context));
 		if (l_ctx == NULL)
@@ -859,11 +859,9 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		l_ctx->page_ofs = ofs;
 
 		/* 컨텍스트 전달과 페이지 초기화 */
-		void *aux = l_ctx;
-		if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable, lazy_load_segment, aux))
+		if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable, lazy_load_segment, l_ctx))
 		{
 			free(l_ctx);
-			l_ctx = NULL;
 			return false;
 		}
 
@@ -879,19 +877,24 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 	return true;
 }
 
-/* Create a PAGE of stack at the USER_STACK. Return true on success. */
+/* USER_STACK에 스택의 PAGE 하나를 생성합니다.
+ * 성공 시 true를 반환합니다. */
 static bool
 setup_stack(struct intr_frame *if_)
 {
-	bool success = false;
 	void *stack_bottom = (void *)(((uint8_t *)USER_STACK) - PGSIZE);
 
-	/* TODO: Map the stack on stack_bottom and claim the page immediately.
-	 * TODO: If success, set the rsp accordingly.
-	 * TODO: You should mark the page is stack. */
-	/* TODO: Your code goes here */
+	/* 페이지 생성 */
+	if (!vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true))
+		return false;
 
-	return success;
+	/* 프레임 매핑 */
+	if (!vm_claim_page(stack_bottom))
+		return false;
+
+	/* 레지스터 조정 */
+	if_->rsp = (uintptr_t)USER_STACK;
+	return true;
 }
 #else
 /* Codes of this block will be ONLY USED DURING project 2.

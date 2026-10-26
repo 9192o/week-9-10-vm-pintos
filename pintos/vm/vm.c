@@ -172,7 +172,7 @@ vm_get_frame(void)
 		PANIC("todo");
 
 	/* 사용자 물리 프레임 확보 */
-	frame->kva = palloc_get_page(PAL_USER);
+	frame->kva = palloc_get_page(PAL_USER | PAL_ZERO);
 	if (frame->kva == NULL)
 	{
 		free(frame);
