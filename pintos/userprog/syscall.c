@@ -342,19 +342,44 @@ static size_t check_user_string(const char *str)
 /* writable은 커널이 사용자 버퍼에 쓰는 READ에서만 요구합니다. */
 static bool check_user_buffer(const void *buffer, unsigned len, bool writable)
 {
+	struct thread *curr = thread_current();
+	/* 길이가 0이면 (아무것도 쓰지 않았으므로 참) */
 	if (len == 0)
 		return true;
+
+	/* 버퍼 자체의 주소가 잘못되었다면 */
 	if (buffer == NULL || !is_user_vaddr(buffer))
 		exit_helper(-1);
+	/* 길이가 버퍼를 벗어난다면 */
 	if (len > (uintptr_t)KERN_BASE - (uintptr_t)buffer)
 		return false;
 
-	struct thread *curr = thread_current();
 	uintptr_t last = (uintptr_t)pg_round_down((uintptr_t)buffer + len - 1);
 	for (uintptr_t pg = (uintptr_t)pg_round_down(buffer); pg <= last; pg += PGSIZE)
 	{
+		/* 매핑된 페이지가 없을 시 */
 		if (pml4_get_page(curr->pml4, (const void *)pg) == NULL)
+		{
+#ifdef VM
+			/* SPT 검색 */
+			struct page *page = NULL;
+			page = spt_find_page(&(curr->spt), (void *)pg);
+
+			if (page == NULL)
+				exit_helper(-1);
+
+			/* SPT 존재. 페이지 권한 검사 */
+			if (!page->writable && writable)
+				exit_helper(-1);
+
+			/* 프레임 매핑 (Lazy Loading) */
+			if (!vm_claim_page((void *)pg))
+				return false;
+#else
 			exit_helper(-1);
+#endif
+		}
+
 		uint64_t *pte = pml4e_walk(curr->pml4, pg, 0);
 		if (!is_user_pte(pte) || (writable && !is_writable(pte)))
 			exit_helper(-1);
