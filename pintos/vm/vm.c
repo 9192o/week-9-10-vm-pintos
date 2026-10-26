@@ -202,10 +202,34 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 {
 	struct supplemental_page_table *spt = &(thread_current()->spt);
 	struct page *page = NULL;
-	/* TODO: Validate the fault */
-	/* TODO: Your code goes here */
 
-	return vm_do_claim_page(page);
+	/* 주소가 NULL인가? */
+	if (addr == NULL)
+		return false;
+	/* 커널을 참조했는가? */
+	if (is_kernel_vaddr(addr))
+		return false;
+
+	/* TODO: user 쓰기 */
+
+	/* 매핑이 없는가? */
+	if (not_present)
+	{
+		/* 페이지 검색 */
+		page = spt_find_page(spt, addr);
+
+		/* 페이지가 없는가? */
+		if (page == NULL)
+			return false;
+		/* 쓰기 금지인데 쓰는건가? */
+		if (!(page->writable) && write)
+			return false;
+
+		/* 페이지 로딩 */
+		return vm_do_claim_page(page);
+	}
+	else
+		return false;
 }
 
 /* PAGE를 free합니다.

@@ -21,7 +21,7 @@ enum vm_type
 
 	/* 저장 정보를 위한 보조 비트 플래그 마커입니다.
 	 * int형 마커를 더 추가할 수 있습니다. */
-	VM_MARKER_0 = (1 << 3),
+	VM_MARKER_0 = (1 << 3), /* WOONG: 스택 표시용으로 정함. */
 	VM_MARKER_1 = (1 << 4),
 
 	/* DO NOT EXCEED THIS VALUE.
