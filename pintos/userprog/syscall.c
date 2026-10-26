@@ -321,7 +321,8 @@ void syscall_handler(struct intr_frame *f)
 	}
 }
 
-/* 종료 문자까지 검증하며, 기존 명령줄 한 페이지 제한을 유지합니다. */
+/* 종료 문자까지 검증하며, 기존 명령줄 한 페이지 제한을 유지합니다.
+ * 현재는 매 바이트마다 검증하며, 추후 첫 주소와 페이지 경계에서만 조회하도록 최적화 할 수 있습니다. */
 static size_t check_user_string(const char *str)
 {
 	struct thread *curr = thread_current();
@@ -331,8 +332,17 @@ static size_t check_user_string(const char *str)
 	for (size_t len = 0; len < PGSIZE; len++)
 	{
 		const char *pos = str + len;
-		if (!is_user_vaddr(pos) || pml4_get_page(curr->pml4, pos) == NULL)
+		if (!is_user_vaddr(pos))
 			exit_helper(-1);
+
+		if (pml4_get_page(curr->pml4, pos) == NULL)
+#ifdef VM
+			/* SPT 검색과 프레임 매핑 */
+			if (!vm_claim_page((void *)pos))
+				exit_helper(-1);
+#else
+			exit_helper(-1);
+#endif
 		if (*pos == '\0')
 			return len;
 	}
