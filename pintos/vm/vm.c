@@ -80,13 +80,16 @@ spt_find_page(struct supplemental_page_table *spt, void *va)
 }
 
 /* 검증과 함께 spt에 PAGE를 삽입합니다. */
-bool spt_insert_page(struct supplemental_page_table *spt UNUSED,
-					 struct page *page UNUSED)
-{
-	int succ = false;
-	/* TODO: Fill this function. */
+bool spt_insert_page(struct supplemental_page_table *spt, struct page *page)
+{	
+	page->va = pg_round_down(page->va); // 정렬 맞춤 (페이지 시작 부분)
 
-	return succ;
+	// 이미 있는 놈이면 실패. false 반환
+	if (spt_find_page(spt, page->va) == NULL)
+		return false;
+
+	// 삽입 시도하고 성공 여부 반환
+	return hash_insert(&spt->pages, &page->hash_elem);
 }
 
 /* spt에서 PAGE를 삭제합니다. */
