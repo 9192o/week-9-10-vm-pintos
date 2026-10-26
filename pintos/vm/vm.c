@@ -182,9 +182,31 @@ vm_do_claim_page(struct page *page)
 	return swap_in(page, frame->kva);
 }
 
-/* Initialize new supplemental page table */
-void supplemental_page_table_init(struct supplemental_page_table *spt UNUSED)
+/* 해시 함수 */
+static uint64_t
+hash_page(const struct hash_elem *elem, void *aux UNUSED)
 {
+	const struct page *page = hash_entry(elem, struct page, hash_elem);
+	return hash_bytes(&page->va, sizeof page->va);
+}
+
+/* 해시 비교 함수 */
+static bool
+hash_cmp(const struct hash_elem *a,
+          const struct hash_elem *b,
+          void *aux UNUSED)
+{
+    const struct page *page_a = hash_entry(a, struct page, hash_elem);
+    const struct page *page_b = hash_entry(b, struct page, hash_elem);
+
+    return page_a->va < page_b->va;
+}
+/* Initialize new supplemental page table */
+// spt에 어떤 자료구조를 쓸 지는 마음대로 (list, hashmap, ...)
+// 호출: 새 프로세스 시작(userprog.process.c 의 initd), 프로세스 fork(userprog/process.c의 __do_fork)
+void supplemental_page_table_init(struct supplemental_page_table *spt)
+{
+	hash_init(&spt->pages, hash_page, hash_cmp, NULL);
 }
 
 /* Copy supplemental page table from src to dst */
