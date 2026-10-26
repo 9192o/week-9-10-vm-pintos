@@ -65,12 +65,18 @@ err:
 
 /* spt에서 VA를 찾고, 그 PAGE를 반환합니다. 오류 시 NULL을 반환합니다. */
 struct page *
-spt_find_page(struct supplemental_page_table *spt UNUSED, void *va UNUSED)
+spt_find_page(struct supplemental_page_table *spt, void *va)
 {
-	struct page *page = NULL;
-	/* TODO: Fill this function. */
+	struct page lookup_page = {0} ; // 임시 페이지
+	lookup_page.va = pg_round_down(va); // 정렬 맞춤 (페이지 시작 부분)
 
-	return page;
+	struct hash_elem *elem = hash_find(&spt->pages, &lookup_page.hash_elem);
+
+	if (elem == NULL)
+		return NULL;
+	
+	// elem을 가지고 있는 실제 page의 주소를 복원해 반환
+	return hash_entry(elem, struct page, hash_elem);
 }
 
 /* 검증과 함께 spt에 PAGE를 삽입합니다. */
