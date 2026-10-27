@@ -52,7 +52,7 @@ void syscall_init(void)
 	write_msr(MSR_SYSCALL_MASK,
 			  FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 
-	lock_init(&(filesys_lock));
+	lock_init(&filesys_lock);
 }
 
 /* The main system call interface */
@@ -321,7 +321,8 @@ void syscall_handler(struct intr_frame *f)
 	}
 }
 
-/* 종료 문자까지 검증하며, 기존 명령줄 한 페이지 제한을 유지합니다. */
+/* 종료 문자까지 검증하며, 기존 명령줄 한 페이지 제한을 유지합니다.
+ * 현재는 매 바이트마다 검증하며, 추후 첫 주소와 페이지 경계에서만 조회하도록 최적화 할 수 있습니다. */
 static size_t check_user_string(const char *str)
 {
 	struct thread *curr = thread_current();
@@ -331,8 +332,17 @@ static size_t check_user_string(const char *str)
 	for (size_t len = 0; len < PGSIZE; len++)
 	{
 		const char *pos = str + len;
-		if (!is_user_vaddr(pos) || pml4_get_page(curr->pml4, pos) == NULL)
+		if (!is_user_vaddr(pos))
 			exit_helper(-1);
+
+		if (pml4_get_page(curr->pml4, pos) == NULL)
+#ifdef VM
+			/* SPT 검색과 프레임 매핑 */
+			if (!vm_claim_page((void *)pos))
+				exit_helper(-1);
+#else
+			exit_helper(-1);
+#endif
 		if (*pos == '\0')
 			return len;
 	}
@@ -342,19 +352,44 @@ static size_t check_user_string(const char *str)
 /* writable은 커널이 사용자 버퍼에 쓰는 READ에서만 요구합니다. */
 static bool check_user_buffer(const void *buffer, unsigned len, bool writable)
 {
+	struct thread *curr = thread_current();
+	/* 길이가 0이면 (아무것도 쓰지 않았으므로 참) */
 	if (len == 0)
 		return true;
+
+	/* 버퍼 자체의 주소가 잘못되었다면 */
 	if (buffer == NULL || !is_user_vaddr(buffer))
 		exit_helper(-1);
+	/* 길이가 버퍼를 벗어난다면 */
 	if (len > (uintptr_t)KERN_BASE - (uintptr_t)buffer)
 		return false;
 
-	struct thread *curr = thread_current();
 	uintptr_t last = (uintptr_t)pg_round_down((uintptr_t)buffer + len - 1);
 	for (uintptr_t pg = (uintptr_t)pg_round_down(buffer); pg <= last; pg += PGSIZE)
 	{
+		/* 매핑된 페이지가 없을 시 */
 		if (pml4_get_page(curr->pml4, (const void *)pg) == NULL)
+		{
+#ifdef VM
+			/* SPT 검색 */
+			struct page *page = NULL;
+			page = spt_find_page(&(curr->spt), (void *)pg);
+
+			if (page == NULL)
+				exit_helper(-1);
+
+			/* SPT 존재. 페이지 권한 검사 */
+			if (!page->writable && writable)
+				exit_helper(-1);
+
+			/* 프레임 매핑 (Lazy Loading) */
+			if (!vm_claim_page((void *)pg))
+				return false;
+#else
 			exit_helper(-1);
+#endif
+		}
+
 		uint64_t *pte = pml4e_walk(curr->pml4, pg, 0);
 		if (!is_user_pte(pte) || (writable && !is_writable(pte)))
 			exit_helper(-1);

@@ -21,7 +21,7 @@ enum vm_type
 
 	/* 저장 정보를 위한 보조 비트 플래그 마커입니다.
 	 * int형 마커를 더 추가할 수 있습니다. */
-	VM_MARKER_0 = (1 << 3),
+	VM_MARKER_0 = (1 << 3), /* WOONG: 스택 표시용으로 정함. */
 	VM_MARKER_1 = (1 << 4),
 
 	/* DO NOT EXCEED THIS VALUE.
@@ -52,7 +52,8 @@ struct page
 	struct frame *frame; /* 프레임에 대한 역참조 */
 
 	/* Your implementation */
-	struct hash_elem spt_mapped_page_elem; /* 해시 테이블에 들어갈 요소 */
+	struct hash_elem spt_page_elem; /* 해시 테이블에 들어갈 요소 */
+	bool writable;
 
 	/* 각 데이터 유형은 union에 바인딩됩니다.
 	 * 각 함수는 현재 union을 자동으로 감지합니다. */
@@ -99,7 +100,7 @@ struct page_operations
  * 어떻게 만들까는, 당신에게 달려있습니다. */
 struct supplemental_page_table
 {
-	struct hash spt_mapped_page;
+	struct hash spt_pages;
 };
 
 #include "threads/thread.h"
