@@ -51,54 +51,49 @@ static struct frame *vm_evict_frame(void);
 /* 보류 중인 페이지 객체를 생성하고 초기화합니다.
  * 페이지를 생성하려면 직접 생성하지 말고,
  * 이 함수나 `vm_alloc_page`를 통해 생성하십시오. */
-bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable, vm_initializer *init, void *aux)
+bool vm_alloc_page_with_initializer(enum vm_type type, void *upage,
+									bool writable, vm_initializer *init,
+									void *aux)
 {
+	ASSERT(VM_TYPE(type) != VM_UNINIT);
 
-	ASSERT(VM_TYPE(type) != VM_UNINIT)
+	struct supplemental_page_table *spt = &thread_current()->spt;
 
-	struct supplemental_page_table *spt = &(thread_current()->spt);
-
-	/* Check wheter the upage is already occupied or not. */
-	if (spt_find_page(spt, upage) == NULL)
+	if (spt_find_page(spt, upage) != NULL)
 	{
-<<<<<<< Updated upstream
-=======
-		struct page *page = malloc(sizeof(struct page));
-		if (page == NULL)
-		{
-			return false;
-		}
-		if (VM_TYPE(type) == VM_ANON)
-		{
-			uninit_new(page, upage, init, type, aux, anon_initializer);
-		}
-		else if (VM_TYPE(type) == VM_FILE)
-		{
-			uninit_new(page, upage, init, type, aux, file_backed_initializer);
-		}
-		else
-		{
-			free(page);
-			return false;
-		}
-		page->writable = writable;
-		bool tf = spt_insert_page(spt, page);
-		if (tf == false)
-		{
-			free(page);
-			return false;
-		}
-		return true;
->>>>>>> Stashed changes
-		/* TODO: Create the page, fetch the initialier according to the VM type,
-		 * TODO: and then create "uninit" page struct by calling uninit_new. You
-		 * TODO: should modify the field after calling the uninit_new. */
-		/* TODO: Insert the page into the spt. */
+		return false;
 	}
-err:
-	return false;
-}
 
+	struct page *page = malloc(sizeof(struct page));
+	if (page == NULL)
+	{
+		return false;
+	}
+
+	if (VM_TYPE(type) == VM_ANON)
+	{
+		uninit_new(page, upage, init, type, aux, anon_initializer);
+	}
+	else if (VM_TYPE(type) == VM_FILE)
+	{
+		uninit_new(page, upage, init, type, aux, file_backed_initializer);
+	}
+	else
+	{
+		free(page);
+		return false;
+	}
+
+	page->writable = writable;
+
+	if (!spt_insert_page(spt, page))
+	{
+		free(page);
+		return false;
+	}
+
+	return true;
+}
 /* spt에서 VA를 찾고, 그 PAGE를 반환합니다. 오류 시 NULL을 반환합니다. */
 struct page *
 spt_find_page(struct supplemental_page_table *spt, void *va)
@@ -135,7 +130,7 @@ bool spt_insert_page(struct supplemental_page_table *spt, struct page *page)
 void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
 {
 	vm_dealloc_page(page);
-	return true; /* 왜인지 모르지만 true를 반환 */
+	return; /* 왜인지 모르지만 true를 반환 */
 }
 
 /* 희생할 struct frame을 반환합니다. */
@@ -219,20 +214,41 @@ bool vm_claim_page(void *va UNUSED)
 static bool
 vm_do_claim_page(struct page *page)
 {
+	if (page == NULL)
+	{
+		return false;
+	}
+
 	struct frame *frame = vm_get_frame();
+
+	if (frame == NULL)
+	{
+		return false;
+	}
 
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
 
-<<<<<<< Updated upstream
-	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-=======
+	if (!pml4_set_page(thread_current()->pml4,
+					   page->va,
+					   frame->kva,
+					   page->writable))
+	{
+		frame->page = NULL;
+		page->frame = NULL;
 		return false;
 	}
->>>>>>> Stashed changes
 
-	return swap_in(page, frame->kva);
+	if (!swap_in(page, frame->kva))
+	{
+		pml4_clear_page(thread_current()->pml4, page->va);
+		frame->page = NULL;
+		page->frame = NULL;
+		return false;
+	}
+
+	return true;
 }
 // TODO PALLOC사용하면 FREE해결
 
