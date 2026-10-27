@@ -61,10 +61,38 @@ bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writabl
 	/* Check wheter the upage is already occupied or not. */
 	if (spt_find_page(spt, upage) == NULL)
 	{
+<<<<<<< Updated upstream
+=======
+		struct page *page = malloc(sizeof(struct page));
+		if (page == NULL)
+		{
+			return false;
+		}
+		if (VM_TYPE(type) == VM_ANON)
+		{
+			uninit_new(page, upage, init, type, aux, anon_initializer);
+		}
+		else if (VM_TYPE(type) == VM_FILE)
+		{
+			uninit_new(page, upage, init, type, aux, file_backed_initializer);
+		}
+		else
+		{
+			free(page);
+			return false;
+		}
+		page->writable = writable;
+		bool tf = spt_insert_page(spt, page);
+		if (tf == false)
+		{
+			free(page);
+			return false;
+		}
+		return true;
+>>>>>>> Stashed changes
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
-
 		/* TODO: Insert the page into the spt. */
 	}
 err:
@@ -197,10 +225,16 @@ vm_do_claim_page(struct page *page)
 	frame->page = page;
 	page->frame = frame;
 
+<<<<<<< Updated upstream
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
+=======
+		return false;
+	}
+>>>>>>> Stashed changes
 
 	return swap_in(page, frame->kva);
 }
+// TODO PALLOC사용하면 FREE해결
 
 /* 새 spt(supplemental_page_table)을 initializing합니다. */
 void supplemental_page_table_init(struct supplemental_page_table *spt)
