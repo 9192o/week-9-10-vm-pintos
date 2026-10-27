@@ -58,6 +58,9 @@ void syscall_init(void)
 /* The main system call interface */
 void syscall_handler(struct intr_frame *f)
 {
+	/* 사용자 RSP 저장 */
+	thread_current()->user_rsp = f->rsp;
+
 	switch (f->R.rax)
 	{
 	case SYS_HALT:
@@ -362,11 +365,16 @@ static bool check_user_buffer(const void *buffer, unsigned len, bool writable)
 		exit_helper(-1);
 	/* 길이가 버퍼를 벗어난다면 */
 	if (len > (uintptr_t)KERN_BASE - (uintptr_t)buffer)
-		return false;
+		exit_helper(-1);
 
 	uintptr_t last = (uintptr_t)pg_round_down((uintptr_t)buffer + len - 1);
-	for (uintptr_t pg = (uintptr_t)pg_round_down(buffer); pg <= last; pg += PGSIZE)
+	for (uintptr_t pg = (uintptr_t)pg_round_down(buffer);
+		 pg <= last;
+		 pg += PGSIZE)
 	{
+		/* 현재 페이지에서 버퍼가 실제로 사용하는 첫 주소 */
+		uintptr_t access_addr = pg < (uintptr_t)buffer ? (uintptr_t)buffer : pg;
+
 		/* 매핑된 페이지가 없을 시 */
 		if (pml4_get_page(curr->pml4, (const void *)pg) == NULL)
 		{
@@ -375,16 +383,22 @@ static bool check_user_buffer(const void *buffer, unsigned len, bool writable)
 			struct page *page = NULL;
 			page = spt_find_page(&(curr->spt), (void *)pg);
 
+			/* 페이지 폴트 시 핸들러 호출 */
 			if (page == NULL)
-				exit_helper(-1);
+			{
+				if (!vm_try_handle_fault(NULL, (void *)access_addr, false, writable, true))
+					exit_helper(-1);
+			}
+			else
+			{
+				/* SPT 존재. 페이지 권한 검사 */
+				if (!page->writable && writable)
+					exit_helper(-1);
 
-			/* SPT 존재. 페이지 권한 검사 */
-			if (!page->writable && writable)
-				exit_helper(-1);
-
-			/* 프레임 매핑 (Lazy Loading) */
-			if (!vm_claim_page((void *)pg))
-				return false;
+				/* 프레임 매핑 (Lazy Loading) */
+				if (!vm_claim_page((void *)pg))
+					return false;
+			}
 #else
 			exit_helper(-1);
 #endif

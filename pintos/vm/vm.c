@@ -190,8 +190,9 @@ vm_get_frame(void)
 
 /* 스택을 늘립니다. */
 static void
-vm_stack_growth(void *addr UNUSED)
+vm_stack_growth(void *addr)
 {
+	vm_alloc_page((VM_ANON | VM_MARKER_0), pg_round_down(addr), true);
 }
 
 /* 쓰기 보호된 페이지에서 발생하는 오류를 처리합니다. */
@@ -205,34 +206,49 @@ bool vm_try_handle_fault(struct intr_frame *f, void *addr, bool user, bool write
 {
 	struct supplemental_page_table *spt = &(thread_current()->spt);
 	struct page *page = NULL;
+	uintptr_t rsp;
 
 	/* 주소가 NULL인가? */
 	if (addr == NULL)
 		return false;
+
 	/* 커널을 참조했는가? */
 	if (is_kernel_vaddr(addr))
 		return false;
 
-	/* TODO: user 쓰기 */
+	/* 커널/사용자 측에서 폴트가 났나? */
+	if (!user)
+		rsp = thread_current()->user_rsp;
+	else
+		rsp = f->rsp;
 
-	/* 매핑이 없는가? */
-	if (not_present)
+	/* 매핑이 있는데 보호를 위반했나? */
+	if (!not_present)
+		return false;
+
+	/* 페이지 검색 */
+	page = spt_find_page(spt, addr);
+
+	/* 페이지가 없는가? */
+	if (page == NULL)
 	{
-		/* 페이지 검색 */
-		page = spt_find_page(spt, addr);
+		/* 스택 확장 조건을 만족하지 않으면 거부합니다. */
+		if (!(USER_STACK - STACK_MAX_SIZE <= (uintptr_t)addr &&
+			  USER_STACK > (uintptr_t)addr && (uintptr_t)addr >= rsp - 8))
+			return false;
 
-		/* 페이지가 없는가? */
+		vm_stack_growth(addr);
+		page = spt_find_page(spt, addr);
 		if (page == NULL)
 			return false;
-		/* 쓰기 금지인데 쓰는건가? */
-		if (!(page->writable) && write)
-			return false;
-
-		/* 페이지 로딩 */
-		return vm_do_claim_page(page);
 	}
-	else
+
+	/* 쓰기 금지인데 쓰는건가? */
+	if (!(page->writable) && write)
 		return false;
+
+	/* 페이지 로딩 */
+	return vm_do_claim_page(page);
 }
 
 /* PAGE를 free합니다.
