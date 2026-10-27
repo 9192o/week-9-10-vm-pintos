@@ -123,12 +123,21 @@ vm_evict_frame(void)
 static struct frame *
 vm_get_frame(void)
 {
-	struct frame *frame = NULL;
-	/* TODO: Fill this function. */
+	void *new_kva = palloc_get_page(PAL_USER); // 유저 풀에서 page를 얻어옴
 
-	ASSERT(frame != NULL);
-	ASSERT(frame->page == NULL);
-	return frame;
+	if (new_kva == NULL) // 페이지 할당 실패하면 중단
+		PANIC("todo");
+	
+	struct frame *new_frame = malloc(sizeof *new_frame); // 프레임 할당
+	if (new_frame == NULL) { // 프레임 할당 실패하면 중단
+        palloc_free_page(new_kva);
+        PANIC("failed to allocate frame metadata");
+    }
+
+	new_frame->kva = new_kva; // 프레임에 kva 저장
+    new_frame->page = NULL; // 연결된 페이지 없다고 표시(나중에 다른 곳에서 설정함)
+
+	return new_frame;
 }
 
 /* Growing the stack. */

@@ -68,8 +68,8 @@ struct page
 /* The representation of "frame" */
 struct frame
 {
-	void *kva;
-	struct page *page;
+	void *kva; // kernel virtual address
+	struct page *page; // page 구조체
 };
 
 /* The function table for page operations.
