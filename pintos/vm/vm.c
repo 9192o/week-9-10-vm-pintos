@@ -192,19 +192,19 @@ static uint64_t
 hash_page(const struct hash_elem *elem, void *aux UNUSED)
 {
 	const struct page *page = hash_entry(elem, struct page, hash_elem);
-	return hash_bytes(&page->va, sizeof page->va);
+	void *page_start = pg_round_down(page->va);
+	// va 라운딩해서 넣어야 함
+	return hash_bytes(&page_start, sizeof page_start);
 }
 
 /* 해시 비교 함수 */
 static bool
-hash_cmp(const struct hash_elem *a,
-          const struct hash_elem *b,
-          void *aux UNUSED)
+hash_cmp(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED)
 {
     const struct page *page_a = hash_entry(a, struct page, hash_elem);
     const struct page *page_b = hash_entry(b, struct page, hash_elem);
 
-    return page_a->va < page_b->va;
+    return (uintptr_t) pg_round_down(page_a->va) < (uintptr_t) pg_round_down(page_b->va);
 }
 /* Initialize new supplemental page table */
 // spt에 어떤 자료구조를 쓸 지는 마음대로 (list, hashmap, ...)
