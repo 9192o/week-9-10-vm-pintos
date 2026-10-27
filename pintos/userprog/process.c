@@ -332,6 +332,9 @@ int process_exec(void *f_name)
 	process_cleanup();
 
 	/* And then load the binary */
+#ifdef VM
+	supplemental_page_table_init(&(thread_current()->spt));
+#endif
 
 	lock_acquire(&filesys_lock);
 	success = load(file_name, &_if);
@@ -784,16 +787,6 @@ validate_segment(const struct Phdr *phdr, struct file *file)
 /* From here, codes will be used after project 3.
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
-
-/* for Lazy Loading */
-struct lazy_load_context
-{
-	struct file *file;
-	size_t page_read_bytes;
-	size_t page_zero_bytes;
-
-	off_t page_ofs;
-};
 
 static bool
 lazy_load_segment(struct page *page, void *aux)

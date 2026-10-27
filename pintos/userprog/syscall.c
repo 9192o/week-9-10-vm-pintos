@@ -52,7 +52,7 @@ void syscall_init(void)
 	write_msr(MSR_SYSCALL_MASK,
 			  FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
 
-	lock_init(&(filesys_lock));
+	lock_init(&filesys_lock);
 }
 
 /* The main system call interface */

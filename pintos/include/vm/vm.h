@@ -52,7 +52,7 @@ struct page
 	struct frame *frame; /* 프레임에 대한 역참조 */
 
 	/* Your implementation */
-	struct hash_elem spt_mapped_page_elem; /* 해시 테이블에 들어갈 요소 */
+	struct hash_elem spt_page_elem; /* 해시 테이블에 들어갈 요소 */
 	bool writable;
 
 	/* 각 데이터 유형은 union에 바인딩됩니다.
@@ -100,7 +100,7 @@ struct page_operations
  * 어떻게 만들까는, 당신에게 달려있습니다. */
 struct supplemental_page_table
 {
-	struct hash spt_mapped_page;
+	struct hash spt_pages;
 };
 
 #include "threads/thread.h"
