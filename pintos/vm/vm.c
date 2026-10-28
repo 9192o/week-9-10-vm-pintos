@@ -133,6 +133,7 @@ bool spt_insert_page(struct supplemental_page_table *spt, struct page *page)
 /* spt에서 PAGE를 삭제합니다. */
 void spt_remove_page(struct supplemental_page_table *spt, struct page *page)
 {
+	hash_delete(&(spt->spt_pages), &(page->spt_page_elem));
 	vm_dealloc_page(page);
 }
 
@@ -310,7 +311,8 @@ vm_do_claim_page(struct page *page)
 void supplemental_page_table_init(struct supplemental_page_table *spt)
 {
 	/* TODO: init 실패 시 처리 분기 */
-	hash_init(&(spt->spt_pages), hash_func, hash_compare_func, NULL);
+	if (!hash_init(&(spt->spt_pages), hash_func, hash_compare_func, NULL))
+		PANIC("TODO");
 }
 
 static uint64_t
