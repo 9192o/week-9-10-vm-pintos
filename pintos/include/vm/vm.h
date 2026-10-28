@@ -52,7 +52,8 @@ struct page
 	struct frame *frame; /* 프레임에 대한 역참조 */
 
 	/* Your implementation */
-	struct hash_elem spt_mapped_page_elem; /* 해시 테이블에 들어갈 요소 */
+	struct hash_elem spt_mapped_page_elem; /* SPT 해시 테이블 요소 */
+	bool writable; // 쓰기 권한
 
 	/* 각 데이터 유형은 union에 바인딩됩니다.
 	 * 각 함수는 현재 union을 자동으로 감지합니다. */
@@ -71,8 +72,8 @@ struct page
 /* The representation of "frame" */
 struct frame
 {
-	void *kva;
-	struct page *page;
+	void *kva; // kernel virtual address
+	struct page *page; // page 구조체
 };
 
 /* The function table for page operations.
