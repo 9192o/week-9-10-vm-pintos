@@ -4,6 +4,7 @@
 #include "vm/vm.h"
 #include "vm/inspect.h"
 #include "threads/mmu.h"
+#include "threads/vaddr.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -202,8 +203,16 @@ vm_do_claim_page(struct page *page)
 		return false;
 	}
 
-	// swap in 실패 경우도 고려해서 수정 (타입마다.......는 쫌 그러니까 여기서 정리하셈)
-	return swap_in(page, new_frame->kva);
+	// swap in 실패 경우도 고려
+	if (!swap_in(page, new_frame->kva)) {
+        pml4_clear_page(thread_current()->pml4, page->va);
+        page->frame = NULL;
+        palloc_free_page(new_frame->kva);
+        free(new_frame);
+        return false;
+    }
+
+    return true;
 }
 
 /* 해시 함수 */
