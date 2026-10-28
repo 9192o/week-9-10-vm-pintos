@@ -317,6 +317,35 @@ void syscall_handler(struct intr_frame *f)
 		}
 		break;
 	}
+	case SYS_MMAP:
+	{
+		void *addr = (void *)f->R.rdi;
+		size_t length = (size_t)f->R.rsi;
+		int writable = (int)f->R.rdx;
+		int fd = (int)f->R.r10;
+		off_t offset = (off_t)f->R.r8;
+
+		/* 파일 검색 */
+		struct file *file = lookup_file(fd);
+		if (file == NULL)
+		{
+			f->R.rax = NULL;
+			return;
+		}
+
+		f->R.rax = do_mmap(addr, length, writable, file, offset);
+		break;
+	}
+	case SYS_MUNMAP:
+	{
+		void *va = (void *)f->R.rdi;
+
+		/* 커널 주소 해제? */
+		if (is_kernel_vaddr(va))
+			exit_helper(-1);
+		do_munmap(va);
+		break;
+	}
 	default:
 	{
 		break;

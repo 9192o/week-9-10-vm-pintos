@@ -1,10 +1,17 @@
 /* file.c: Implementation of memory backed file object (mmaped object). */
 
 #include "vm/vm.h"
+#include "threads/malloc.h"
+#include "threads/mmu.h"
+#include "userprog/syscall.h"
+#include <string.h>
+#include <round.h>
 
 static bool file_backed_swap_in(struct page *page, void *kva);
 static bool file_backed_swap_out(struct page *page);
 static void file_backed_destroy(struct page *page);
+
+static bool file_load_segment(struct page *page, void *aux);
 
 /* DO NOT MODIFY this struct */
 static const struct page_operations file_ops = {
@@ -26,6 +33,8 @@ bool file_backed_initializer(struct page *page, enum vm_type type, void *kva)
 	page->operations = &file_ops;
 
 	struct file_page *file_page = &page->file;
+
+	return true;
 }
 
 /* Swap in the page by read contents from the file. */
@@ -46,17 +55,130 @@ file_backed_swap_out(struct page *page)
 static void
 file_backed_destroy(struct page *page)
 {
-	struct file_page *file_page UNUSED = &page->file;
+	struct file_page *file_page = &page->file;
+
+	/* 물리 프레임 해제 */
+	pml4_clear_page(thread_current()->pml4, page->va);
+	palloc_free_page(page->frame->kva);
+	free(page->frame);
+	page->frame = NULL;
 }
 
-/* Do the mmap */
-void *
-do_mmap(void *addr, size_t length, int writable,
-		struct file *file, off_t offset)
+/* addr에 파일을 매핑합니다.
+ * 성공 시 매핑된 주소를 반환하며, 실패하면 NULL을 반환합니다. */
+void *do_mmap(void *addr, size_t length, int writable, struct file *file, off_t offset)
 {
+	uintptr_t mapped = (uintptr_t)addr;
+	bool success = false;
+	/* 주소가 없는가? 매핑할 길이가 0인가? 오프셋이 음수인가? */
+	if (addr == NULL || !length || offset < 0)
+		return NULL;
+
+	/* 오프셋보다 파일 길이가 작은가? */
+	lock_acquire(&filesys_lock);
+	success = (file_length(file) > offset);
+	lock_release(&filesys_lock);
+
+	if (!success)
+		return NULL;
+
+	/* 파일 열기 */
+	lock_acquire(&filesys_lock);
+	file = file_reopen(file);
+	lock_release(&filesys_lock);
+
+	if (file == NULL)
+		return NULL;
+
+	/* 파일 페이지 매핑 */
+	lock_acquire(&filesys_lock);
+	size_t read_bytes = length < (file_length(file) - offset) ? length : (file_length(file) - offset);
+	size_t zero_bytes = ROUND_UP(length, PGSIZE) - read_bytes;
+	lock_release(&filesys_lock);
+
+	while (read_bytes > 0 || zero_bytes > 0)
+	{
+		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+		size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+		/* 파일 로딩을 위한 컨텍스트 설정 */
+		struct lazy_load_context *f_ctx = malloc(sizeof(struct lazy_load_context));
+		if (f_ctx == NULL)
+			return NULL;
+
+		f_ctx->file = file;
+		f_ctx->page_read_bytes = page_read_bytes;
+		f_ctx->page_zero_bytes = page_zero_bytes;
+		f_ctx->page_ofs = offset;
+
+		/* 컨텍스트 전달과 페이지 초기화 */
+		if (!vm_alloc_page_with_initializer(VM_FILE, addr, writable, file_load_segment, f_ctx))
+		{
+			free(f_ctx);
+			return NULL;
+		}
+
+		/* Advance. */
+		read_bytes -= page_read_bytes;
+		zero_bytes -= page_zero_bytes;
+		addr += PGSIZE;
+
+		/* 파일 오프셋 갱신 */
+		offset += page_read_bytes;
+	}
+
+	return (void *)mapped;
+}
+
+static bool
+file_load_segment(struct page *page, void *aux)
+{
+	struct lazy_load_context *f_ctx = (struct lazy_load_context *)aux;
+	bool success = false;
+	/* 파일 읽기 */
+	lock_acquire(&filesys_lock);
+	success = (file_read_at(f_ctx->file, page->frame->kva, f_ctx->page_read_bytes, f_ctx->page_ofs) == f_ctx->page_read_bytes);
+	lock_release(&filesys_lock);
+
+	if (!success)
+	{
+		free(f_ctx);
+		return false;
+	}
+
+	/* 정보 저장 */
+	page->file.file = f_ctx->file;
+	page->file.file_ofs = f_ctx->page_ofs;
+	page->file.file_read_bytes = f_ctx->page_read_bytes;
+
+	/* 나머지 부분은 0으로 채우기 */
+	memset(page->frame->kva + f_ctx->page_read_bytes, 0, f_ctx->page_zero_bytes);
+
+	/* 컨텍스트 구조체 해제 */
+	free(f_ctx);
+	return true;
 }
 
 /* Do the munmap */
 void do_munmap(void *addr)
 {
+	struct page *page;
+
+	page = spt_find_page(&(thread_current()->spt), addr);
+	if (page == NULL)
+		return;
+
+	/* 페이지 타입 별 언매핑 함수 호출 */
+	switch (page_get_type(page))
+	{
+	case VM_UNINIT:
+
+		break;
+	case VM_FILE:
+		file_backed_destroy(page);
+		break;
+	default:
+		break;
+	}
+	/* 파일 매핑 해제 */
 }

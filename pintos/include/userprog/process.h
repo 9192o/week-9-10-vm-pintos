@@ -32,14 +32,6 @@ struct child_status
     int exit_status;            /* 반환값 */
 };
 
-/* for Lazy Loading */
-struct lazy_load_context
-{
-    struct file *file;
-    size_t page_read_bytes;
-    size_t page_zero_bytes;
-
-    off_t page_ofs;
-};
+struct lazy_load_context;
 
 #endif /* userprog/process.h */

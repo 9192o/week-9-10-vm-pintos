@@ -23,6 +23,7 @@
 #include "userprog/syscall.h"
 #ifdef VM
 #include "vm/vm.h"
+#include "vm/file.h"
 #endif
 
 struct initd_context
@@ -784,16 +785,10 @@ validate_segment(const struct Phdr *phdr, struct file *file)
 }
 
 #ifdef VM /* VM */
-/* From here, codes will be used after project 3.
- * If you want to implement the function for only project 2, implement it on the
- * upper block. */
 
 static bool
 lazy_load_segment(struct page *page, void *aux)
 {
-	/* TODO: Load the segment from the file */
-	/* TODO: This called when the first page fault occurs on address VA. */
-	/* TODO: VA is available when calling this function. */
 	struct lazy_load_context *l_ctx = (struct lazy_load_context *)aux;
 
 	/* 파일 읽기 */
