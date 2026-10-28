@@ -29,6 +29,12 @@ struct initd_context
 	struct child_status *cs; /* 부모/자식이 공유할 종료 기록 */
 	char *cmd_line;			 /* 명령줄 */
 };
+struct temp_lazy
+{
+	struct file *temp_file;
+	off_t ofs;
+	size_t page_read_bytes;
+};
 
 static void process_cleanup(void);
 static bool load(char *file_name, struct intr_frame *if_);
@@ -895,6 +901,16 @@ lazy_load_segment(struct page *page, void *aux)
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+	struct temp_lazy *load_temp = (struct temp_lazy *)aux;
+
+	if (file_read_at(load_temp->temp_file, page->frame->kva, load_temp->page_read_bytes, load_temp->ofs) != load_temp->page_read_bytes)
+	{
+		free(load_temp);
+		return false;
+	}
+	memset((uint8_t *)page->frame->kva + load_temp->page_read_bytes, 0, PGSIZE - load_temp->page_read_bytes);
+	free(load_temp);
+	return true;
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -929,6 +945,18 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
 		void *aux = NULL;
+
+		struct temp_lazy *lazy_load_content = malloc(sizeof(struct temp_lazy));
+		if (lazy_load_content == NULL)
+		{
+			free(lazy_load_content);
+			return false;
+		}
+		lazy_load_content->temp_file = file;
+		lazy_load_content->ofs = ofs;
+		lazy_load_content->page_read_bytes = page_read_bytes;
+		ofs += page_read_bytes;
+		aux = lazy_load_content;
 		if (!vm_alloc_page_with_initializer(VM_ANON, upage,
 											writable, lazy_load_segment, aux))
 			return false;
@@ -947,12 +975,21 @@ setup_stack(struct intr_frame *if_)
 {
 	bool success = false;
 	void *stack_bottom = (void *)(((uint8_t *)USER_STACK) - PGSIZE);
+	if (!vm_alloc_page(VM_ANON | VM_MARKER_0, stack_bottom, true))
+	{
+		return false;
+	}
+	if (!vm_claim_page(stack_bottom))
+	{
+		return false;
+	}
+	if_->rsp = (uintptr_t)USER_STACK;
 
 	/* TODO: Map the stack on stack_bottom and claim the page immediately.
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
-
+	success = true;
 	return success;
 }
 #endif /* VM */
