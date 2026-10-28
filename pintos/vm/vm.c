@@ -54,23 +54,45 @@ static struct frame *vm_evict_frame(void);
  * 페이지를 생성하려면 직접 생성하지 말고,
  * 이 함수나 `vm_alloc_page`를 통해 생성하십시오. */
 bool vm_alloc_page_with_initializer(enum vm_type type, void *upage, bool writable, vm_initializer *init, void *aux)
-{
+{ // 인자: 변환될 타입, va, 페이지 권한, ...
+	ASSERT(VM_TYPE(type) != VM_UNINIT);
 
-	ASSERT(VM_TYPE(type) != VM_UNINIT)
+	struct supplemental_page_table *spt = &(thread_current()->spt); // 현재 스레드의 spt
 
-	struct supplemental_page_table *spt = &(thread_current()->spt);
+	upage = pg_round_down(upage); // 주소 정렬
 
-	/* Check wheter the upage is already occupied or not. */
-	if (spt_find_page(spt, upage) == NULL)
+	/* 이미 있는 페이지인지 확인 */
+	if (spt_find_page(spt, upage) != NULL)
+		return false;
+
+	bool (*page_initializer)(struct page *, enum vm_type, void *) = NULL;
+
+	switch (VM_TYPE(type)) // 페이지 종류에 따라서 initializer switch
 	{
-		/* TODO: Create the page, fetch the initialier according to the VM type,
-		 * TODO: and then create "uninit" page struct by calling uninit_new. You
-		 * TODO: should modify the field after calling the uninit_new. */
-
-		/* TODO: Insert the page into the spt. */
+	case VM_ANON: // 익명 페이지
+		page_initializer = anon_initializer;
+		break;
+	case VM_FILE: // 파일
+		page_initializer = file_backed_initializer;
+		break;
+	default:
+		return false; // 나머지
 	}
-err:
-	return false;
+
+	struct page *page = malloc(sizeof *page); // 메모리 할당
+	if (page == NULL) // 실패하면 false 반환
+		return false;
+
+	uninit_new(page, upage, init, type, aux, page_initializer); // 초기화
+	page->writable = writable; // uninit으로 초기화되므로 uninit 이후에 해야 함
+
+	if (!spt_insert_page(spt, page)) // 페이지 삽입
+	{
+		free(page);
+		return false;
+	}
+
+	return true;
 }
 
 /* spt에서 VA를 찾고, 그 PAGE를 반환합니다. 오류 시 NULL을 반환합니다. */
