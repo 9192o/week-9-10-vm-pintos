@@ -202,14 +202,19 @@ void vm_dealloc_page(struct page *page)
 }
 
 /* VA에 할당된 PAGE를 확보합니다. */
-bool vm_claim_page(void *va UNUSED)
+bool vm_claim_page(void *va)
 {
 	struct page *page = NULL;
-	/* TODO: Fill this function */
+
+	page = spt_find_page(&thread_current()->spt, va);
+
+	if (page == NULL)
+	{
+		return false;
+	}
 
 	return vm_do_claim_page(page);
 }
-
 /* PAGE를 확보하고, MMU를 설정합니다. */
 static bool
 vm_do_claim_page(struct page *page)
