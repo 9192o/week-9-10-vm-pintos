@@ -98,9 +98,20 @@ struct page_operations
  * 이 구조체에 대해 특정 설계를 따르도록 강요하지는 않습니다.
  *
  * 어떻게 만들까는, 당신에게 달려있습니다. */
+
+struct mapped_file
+{
+	struct file *file;
+	struct list_elem mapped_files_elem;
+
+	void *start;
+	size_t pages_count;
+};
+
 struct supplemental_page_table
 {
 	struct hash spt_pages;
+	struct list mapped_files; /* 매핑된 파일 정보를 담는 리스트 */
 };
 
 #include "threads/thread.h"

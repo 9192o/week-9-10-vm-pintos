@@ -96,6 +96,16 @@ void *do_mmap(void *addr, size_t length, int writable, struct file *file, off_t 
 	size_t zero_bytes = ROUND_UP(length, PGSIZE) - read_bytes;
 	lock_release(&filesys_lock);
 
+	/* 기록 구조체 생성 */
+	struct mapped_file *mapped_file = malloc(sizeof *mapped_file);
+	if (mapped_file == NULL)
+		return NULL;
+
+	/* 기록 후 연결 */
+	mapped_file->file = file;
+	mapped_file->start = (void *)mapped;
+	mapped_file->pages_count = ROUND_UP(length, PGSIZE) / PGSIZE;
+
 	while (read_bytes > 0 || zero_bytes > 0)
 	{
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
@@ -126,6 +136,7 @@ void *do_mmap(void *addr, size_t length, int writable, struct file *file, off_t 
 		/* 파일 오프셋 갱신 */
 		offset += page_read_bytes;
 	}
+	list_push_back(&(thread_current()->spt.mapped_files), &(mapped_file->mapped_files_elem));
 
 	return (void *)mapped;
 }
@@ -162,9 +173,14 @@ file_load_segment(struct page *page, void *aux)
 /* Do the munmap */
 void do_munmap(void *addr)
 {
+	struct supplemental_page_table *spt = &(thread_current()->spt);
+	struct list *mapped_files = &(spt->mapped_files);
 	struct page *page;
 
-	page = spt_find_page(&(thread_current()->spt), addr);
+	if (is_kernel_vaddr(addr))
+		PANIC("Invalid Access");
+
+	page = spt_find_page(spt, addr);
 	if (page == NULL)
 		return;
 
@@ -172,13 +188,34 @@ void do_munmap(void *addr)
 	switch (page_get_type(page))
 	{
 	case VM_UNINIT:
-
+		/* TODO */
 		break;
 	case VM_FILE:
-		file_backed_destroy(page);
+	{
+		struct list_elem *e;
+		struct mapped_file *mapped_file = NULL;
+
+		/* 매핑된 파일 리스트 탐색 ㄴ*/
+		for (e = list_begin(mapped_files); e != list_end(mapped_files); e = list_next(e))
+		{
+			mapped_file = list_entry(e, struct mapped_file, mapped_files_elem);
+			if (mapped_file->start == addr)
+				break;
+		}
+
+		/* 못 찾은 경우 */
+		if (e == list_end(mapped_files))
+			return;
+
+		/* 연결된 파일 페이지 해제. */
+		for (size_t i = 0; i < mapped_file->pages_count; i++)
+		{
+			page = spt_find_page(spt, (void *)((uintptr_t)(mapped_file->start) + PGSIZE * i));
+			spt_remove_page(spt, page);
+		}
 		break;
+	}
 	default:
 		break;
 	}
-	/* 파일 매핑 해제 */
 }

@@ -310,9 +310,12 @@ vm_do_claim_page(struct page *page)
 /* 새 spt(supplemental_page_table)을 initializing합니다. */
 void supplemental_page_table_init(struct supplemental_page_table *spt)
 {
-	/* TODO: init 실패 시 처리 분기 */
+	/* 해시맵 초기화 */
 	if (!hash_init(&(spt->spt_pages), hash_func, hash_compare_func, NULL))
 		PANIC("TODO");
+
+	/* 매핑된 파일 정보 리스트 초기화 */
+	list_init(&(spt->mapped_files));
 }
 
 static uint64_t
