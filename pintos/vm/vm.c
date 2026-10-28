@@ -3,6 +3,7 @@
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
+#include "threads/mmu.h"
 
 /* 해시 함수 */
 static uint64_t
@@ -131,7 +132,7 @@ vm_evict_frame(void)
 	return NULL;
 }
 
-/* palloc() 호출하여 프레임을 확보합니다.
+/* palloc()을 호출하여 프레임을 확보합니다.
  * 사용 가능한 페이지가 없다면, 해당 페이지를 희생시키고 반환합니다.
  *
  * 이 함수는 항상 유효한 주소를 반환합니다.
@@ -140,10 +141,25 @@ static struct frame *
 vm_get_frame(void)
 {
 	struct frame *frame = NULL;
-	/* TODO: Fill this function. */
 
-	ASSERT(frame != NULL);
-	ASSERT(frame->page == NULL);
+	/* TODO: 희생과 반환 */
+
+	/* 프레임 관리 구조체 확보 */
+	frame = malloc(sizeof(struct frame));
+	if (frame == NULL)
+		PANIC("todo");
+
+	/* 사용자 물리 프레임 확보 */
+	frame->kva = palloc_get_page(PAL_USER);
+	if (frame->kva == NULL)
+	{
+		free(frame);
+		PANIC("todo");
+	}
+
+	/* 연결된 페이지 없음 */
+	frame->page = NULL;
+
 	return frame;
 }
 
@@ -159,7 +175,7 @@ vm_handle_wp(struct page *page UNUSED)
 {
 }
 
-/* 성공 시 true를 반환합니다. */
+/* 폴트 처리 성공 시 true를 반환합니다. */
 bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED, bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
 {
 	struct supplemental_page_table *spt UNUSED = &(thread_current()->spt);
@@ -179,10 +195,16 @@ void vm_dealloc_page(struct page *page)
 }
 
 /* VA에 할당된 PAGE를 확보합니다. */
-bool vm_claim_page(void *va UNUSED)
+bool vm_claim_page(void *va)
 {
 	struct page *page = NULL;
-	/* TODO: Fill this function */
+	void *pg_start;
+
+	/* 페이지 검색 */
+	pg_start = pg_round_down(va);
+	page = spt_find_page(&(thread_current()->spt), pg_start);
+	if (page == NULL)
+		return false;
 
 	return vm_do_claim_page(page);
 }
@@ -193,13 +215,30 @@ vm_do_claim_page(struct page *page)
 {
 	struct frame *frame = vm_get_frame();
 
-	/* Set links */
+	/* 양방향 연결 */
 	frame->page = page;
 	page->frame = frame;
 
-	/* TODO: Insert page table entry to map page's VA to frame's PA. */
+	/* 프레임 매핑 */
+	if (!pml4_set_page(thread_current()->pml4, page->va, frame->kva, page->writable))
+	{
+		palloc_free_page(frame->kva);
+		free(frame);
+		page->frame = NULL;
+		return false;
+	}
 
-	return swap_in(page, frame->kva);
+	/* 페이지 내용을 프레임에 준비 */
+	if (!swap_in(page, frame->kva))
+	{
+		pml4_clear_page(thread_current()->pml4, page->va);
+		palloc_free_page(frame->kva);
+		free(frame);
+		page->frame = NULL;
+		return false;
+	}
+
+	return true;
 }
 
 /* 새 spt(supplemental_page_table)을 initializing합니다. */
