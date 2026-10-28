@@ -51,6 +51,7 @@ struct page
 	
 	/* Your implementation */
 	struct hash_elem hash_elem; // spt 해시 테이블 연결용
+	bool writable; // 쓰기 권한
 
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */

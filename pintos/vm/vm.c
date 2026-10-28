@@ -3,6 +3,7 @@
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
+#include "threads/mmu.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -185,15 +186,24 @@ bool vm_claim_page(void *va UNUSED)
 static bool
 vm_do_claim_page(struct page *page)
 {
-	struct frame *frame = vm_get_frame();
+	struct frame *new_frame = vm_get_frame();
 
 	/* Set links */
-	frame->page = page;
-	page->frame = frame;
+	new_frame->page = page;
+	page->frame = new_frame;
 
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
+	if (!pml4_set_page(thread_current()->pml4, page->va, new_frame->kva, page->writable))
+	{
+		page->frame = NULL;
+		new_frame->page = NULL;
+		palloc_free_page(new_frame->kva);
+		free(new_frame);
+		return false;
+	}
 
-	return swap_in(page, frame->kva);
+	// swap in 실패 경우도 고려해서 수정 (타입마다.......는 쫌 그러니까 여기서 정리하셈)
+	return swap_in(page, new_frame->kva);
 }
 
 /* 해시 함수 */
