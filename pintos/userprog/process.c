@@ -889,12 +889,31 @@ install_page(void *upage, void *kpage, bool writable)
  * If you want to implement the function for only project 2, implement it on the
  * upper block. */
 
+// 정보 저장용 struct
+struct lazy_load_info {
+	struct file *file;
+	off_t ofs;
+	size_t read_bytes;
+	size_t zero_bytes;
+};
+
 static bool
 lazy_load_segment(struct page *page, void *aux)
-{
+{ // fault가 나야 호출됨
 	/* TODO: Load the segment from the file */
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
+	struct lazy_load_info *info = aux;
+
+	// 파일 읽음
+	bool success = file_read_at(info->file, page->frame->kva, info->read_bytes, info->ofs) == (off_t)info->read_bytes;
+
+	// 나머지를 0으로 채움
+	if (success) // 파일
+		memset((uint8_t *)page->frame->kva + info->read_bytes, 0, info->zero_bytes);
+
+	free(info); // info 해제
+	return success;
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -912,9 +931,8 @@ lazy_load_segment(struct page *page, void *aux)
  * Return true if successful, false if a memory allocation error
  * or disk read error occurs. */
 static bool
-load_segment(struct file *file, off_t ofs, uint8_t *upage,
-			 uint32_t read_bytes, uint32_t zero_bytes, bool writable)
-{
+load_segment(struct file *file, off_t ofs, uint8_t *upage, uint32_t read_bytes, uint32_t zero_bytes, bool writable)
+{ // 현재 페이지의 정보를 전달
 	ASSERT((read_bytes + zero_bytes) % PGSIZE == 0);
 	ASSERT(pg_ofs(upage) == 0);
 	ASSERT(ofs % PGSIZE == 0);
@@ -927,16 +945,26 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 		size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-		/* TODO: Set up aux to pass information to the lazy_load_segment. */
-		void *aux = NULL;
-		if (!vm_alloc_page_with_initializer(VM_ANON, upage,
-											writable, lazy_load_segment, aux))
+		struct lazy_load_info *info = malloc(sizeof *info);
+		if (info == NULL)
 			return false;
+		
+		info->file = file;
+		info->ofs = ofs;
+		info->read_bytes = page_read_bytes;
+		info->zero_bytes = page_zero_bytes;
+		
+		// 정보 보관 실패하면 free해주고 false 반환. 이때는 아직 파일 읽은 거 아님! (fault 나야 읽음)
+		if (!vm_alloc_page_with_initializer(VM_ANON, upage, writable, lazy_load_segment, info))
+		{ 
+			free(info);
+			return false;
+		}
 
-		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
 		upage += PGSIZE;
+		ofs += page_read_bytes;
 	}
 	return true;
 }
@@ -945,14 +973,17 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack(struct intr_frame *if_)
 {
-	bool success = false;
 	void *stack_bottom = (void *)(((uint8_t *)USER_STACK) - PGSIZE);
 
-	/* TODO: Map the stack on stack_bottom and claim the page immediately.
-	 * TODO: If success, set the rsp accordingly.
-	 * TODO: You should mark the page is stack. */
-	/* TODO: Your code goes here */
-
-	return success;
+	// 여기서는 지연로딩 할 필요가 없다. 바로 쓸 거니까...
+	// 익명 페이지 할당
+	if (!vm_alloc_page(VM_ANON, stack_bottom, true))
+		return false;
+	// 페이지 바로 클레임
+	if (!vm_claim_page(stack_bottom))
+		return false;
+	//유저 스택으로 설정
+	if_->rsp = USER_STACK;
+	return true;
 }
 #endif /* VM */
