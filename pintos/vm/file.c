@@ -87,8 +87,14 @@ void *do_mmap(void *addr, size_t length, int writable, struct file *file, off_t 
 {
 	uintptr_t mapped = (uintptr_t)addr;
 	bool success = false;
-	/* 주소가 없는가? 매핑할 길이가 0인가? 오프셋이 음수인가? */
+
 	if (addr == NULL || !length || offset < 0)
+		return NULL;
+
+	if (pg_ofs(addr) != 0 || offset % PGSIZE != 0 || is_kernel_vaddr(addr))
+		return NULL;
+
+	if (length > KERN_BASE - mapped)
 		return NULL;
 
 	/* 오프셋보다 파일 길이가 작은가? */
