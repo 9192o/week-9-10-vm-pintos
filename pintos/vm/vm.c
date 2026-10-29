@@ -194,11 +194,27 @@ vm_handle_wp(struct page *page UNUSED)
 /* 성공 시 true를 반환합니다. */
 bool vm_try_handle_fault(struct intr_frame *f UNUSED, void *addr UNUSED, bool user UNUSED, bool write UNUSED, bool not_present UNUSED)
 {
-	struct supplemental_page_table *spt UNUSED = &(thread_current()->spt);
-	struct page *page = NULL;
-	/* TODO: Validate the fault */
-	/* TODO: Your code goes here */
+	struct supplemental_page_table *spt = &(thread_current()->spt);
+	struct page *page;
+	
+	/* 커널 주소나 NULL 주소는 처리하지 않음 */
+	if (addr == NULL || !is_user_vaddr(addr))
+		return false;
 
+	/* 이미 매핑된 주소의 권한 위반은 여기서 해결하지 않음 */
+	if (!not_present)
+		return false;
+
+	/* fault 주소가 속한 가상 페이지를 SPT에서 찾음 */
+	page = spt_find_page(spt, addr);
+	if (page == NULL)
+		return false;
+
+	/* 읽기 전용 페이지에 쓰려는 fault는 거부 */
+	if (write && !page->writable)
+		return false;
+
+	/* 페이지를 claim하면서 lazy load 또는 swap-in 수행 */
 	return vm_do_claim_page(page);
 }
 
