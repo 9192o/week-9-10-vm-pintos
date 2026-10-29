@@ -57,11 +57,28 @@ file_backed_destroy(struct page *page)
 {
 	struct file_page *file_page = &page->file;
 
-	/* 물리 프레임 해제 */
-	pml4_clear_page(thread_current()->pml4, page->va);
-	palloc_free_page(page->frame->kva);
-	free(page->frame);
-	page->frame = NULL;
+	if (page->frame != NULL)
+	{
+		if (pml4_is_dirty(thread_current()->pml4, page->va))
+		{
+			off_t write_bytes = 0;
+
+			lock_acquire(&filesys_lock);
+			write_bytes = file_write_at(page->file.file, page->frame->kva, page->file.file_read_bytes, page->file.file_ofs);
+			lock_release(&filesys_lock);
+
+			/* 저장 실패시 오류 */
+			ASSERT(write_bytes == page->file.file_read_bytes);
+		}
+
+		/* 사용자 매핑 제거 */
+		pml4_clear_page(thread_current()->pml4, page->va);
+
+		/* 물리 프레임 해제 */
+		palloc_free_page(page->frame->kva);
+		free(page->frame);
+		page->frame = NULL;
+	}
 }
 
 /* addr에 파일을 매핑합니다.
@@ -187,7 +204,7 @@ void do_munmap(void *addr)
 	/* 페이지 타입 별 언매핑 함수 호출 */
 	switch (page_get_type(page))
 	{
-	case VM_UNINIT:
+	case VM_ANON:
 		/* TODO */
 		break;
 	case VM_FILE:
@@ -213,6 +230,13 @@ void do_munmap(void *addr)
 			page = spt_find_page(spt, (void *)((uintptr_t)(mapped_file->start) + PGSIZE * i));
 			spt_remove_page(spt, page);
 		}
+		list_remove(e);
+
+		lock_acquire(&filesys_lock);
+		file_close(mapped_file->file);
+		lock_release(&filesys_lock);
+
+		free(mapped_file);
 		break;
 	}
 	default:
