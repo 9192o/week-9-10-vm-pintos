@@ -28,4 +28,8 @@ struct child_status
     int exit_status;            /* 반환값 */
 };
 
+struct page;
+
+void *copy_page_aux(struct page *src_page);
+
 #endif /* userprog/process.h */

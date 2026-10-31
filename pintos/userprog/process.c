@@ -246,24 +246,33 @@ __do_fork(void *aux)
 	ctx = (struct fork_context *)aux;
 	current->own_status = ctx->cs;
 
-	/* 1. Read the cpu context to local stack. */
+	#ifdef VM
+	supplemental_page_table_init(&current->spt);
+	#endif
+
 	if_ = ctx->user_frame;
 
-	/* 2. Duplicate PT */
 	current->pml4 = pml4_create();
 	if (current->pml4 == NULL)
 		goto error;
 
 	process_activate(current);
-#ifdef VM
-	supplemental_page_table_init(&current->spt);
-	if (!supplemental_page_table_copy(&current->spt, &ctx->parent->spt))
-		goto error;
-#else
-	if (!pml4_for_each(ctx->parent->pml4, duplicate_pte, ctx->parent))
+
+	/* SPT 복사 전에 자식 실행 파일 준비 */
+	lock_acquire(&filesys_lock);
+	current->exec_file = file_duplicate(ctx->parent->exec_file);
+	lock_release(&filesys_lock);
+
+	if (current->exec_file == NULL)
 		goto error;
 
-#endif
+	#ifdef VM
+	if (!supplemental_page_table_copy(&current->spt, &ctx->parent->spt))
+		goto error;
+	#else
+	if (!pml4_for_each(ctx->parent->pml4, duplicate_pte, ctx->parent))
+		goto error;
+	#endif
 
 	/* 자식 fd_table 할당 및 복사 */
 	child_fd_table = palloc_get_page(PAL_ZERO);
@@ -289,12 +298,7 @@ __do_fork(void *aux)
 		}
 	}
 
-	lock_acquire(&filesys_lock);
-	current->exec_file = file_duplicate(ctx->parent->exec_file);
-	lock_release(&filesys_lock);
-
-	if (current->exec_file == NULL)
-		goto error;
+	
 
 	process_init();
 
@@ -967,6 +971,34 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage, uint32_t read_bytes, 
 		ofs += page_read_bytes;
 	}
 	return true;
+}
+
+/* aux 복사 헬퍼 함수 */
+void *
+copy_page_aux(struct page *src_page)
+{
+	struct lazy_load_info *src_info = src_page->uninit.aux;
+	if (src_info == NULL)
+		return NULL;
+
+	/* 현재 구현에서 aux가 있는 페이지는 lazy_load_segment 페이지뿐 */
+	if (src_page->uninit.init != lazy_load_segment)
+		return NULL;
+
+	struct lazy_load_info *copy = malloc(sizeof *copy);
+	if (copy == NULL)
+		return NULL;
+
+	*copy = *src_info;
+
+	/* fork 자식이 복제한 실행 파일을 사용 */
+	copy->file = thread_current()->exec_file;
+	if (copy->file == NULL) {
+		free(copy);
+		return NULL;
+	}
+
+	return copy;
 }
 
 /* Create a PAGE of stack at the USER_STACK. Return true on success. */

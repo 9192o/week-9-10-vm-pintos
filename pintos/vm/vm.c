@@ -305,9 +305,50 @@ hash_compare_func(const struct hash_elem *a, const struct hash_elem *b, void *au
 }
 
 /* src인자로 받은 spt를 dst인자로 복사합니다. */
-bool supplemental_page_table_copy(struct supplemental_page_table *dst UNUSED,
-								  struct supplemental_page_table *src UNUSED)
+bool supplemental_page_table_copy(struct supplemental_page_table *dst, struct supplemental_page_table *src)
 {
+	struct hash_iterator i;
+
+	hash_first(&i, &src->spt_mapped_page);
+
+	while(hash_next(&i))
+	{
+		struct page *src_page = hash_entry(hash_cur(&i), struct page, spt_mapped_page_elem);
+		
+		if (src_page->operations->type == VM_UNINIT) 
+		{	/* 아직 lazy loading 전 */
+			//copy갈긴다
+			void *aux_copy = copy_page_aux(src_page);
+
+			// aux가 있었는데 복제 못 했음
+			if(src_page->uninit.aux != NULL && aux_copy == NULL)
+				return false;
+			
+			if (!vm_alloc_page_with_initializer(src_page->uninit.type, src_page->va, src_page->writable, src_page->uninit.init, aux_copy))
+			{
+				destroy_page_aux_copy(src_page, aux_copy);
+				return false;
+			}
+		}
+		else { /* 이미 초기화된 페이지 */
+			enum vm_type type = page_get_type(src_page);
+
+			if (!vm_alloc_page(type, src_page->va, src_page->writable))
+				return false;
+
+			if (!vm_claim_page(src_page->va))
+				return false;
+
+			struct page *dst_page = spt_find_page(dst, src_page->va);
+			if (dst_page == NULL || src_page->frame == NULL)
+				return false;
+
+			memcpy(dst_page->frame->kva,
+				   src_page->frame->kva,
+				   PGSIZE);
+		
+		}
+	}
 }
 
 /* spt가 점유하고 있는 리소스를 해제합니다. */
